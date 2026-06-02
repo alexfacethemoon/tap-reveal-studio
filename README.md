@@ -10,7 +10,14 @@ This is the same export engine as the original *image-reveal-studio*, rebuilt wi
 
 👉 **https://alexfacethemoon.github.io/tap-reveal-studio/**
 
-## What it does
+## Two tools, one studio
+
+The opening screen (`index.html`) lets you choose a tool:
+
+- **Color Studio** (`studio.html`) — keeps the original colors; hidden areas become sparse interlaced pixels. This is the full painting tool described below.
+- **Brush Dither** (`brush.html`) — black-and-white output using the exact 4×4 dither tile from real tap-me uploads; best for line art, sketches, and drawings. Adds a **Shadow** paint mode and a darkness threshold.
+
+## What it does (Color Studio)
 
 1. Drop in a colored image (a PNG with the background already removed works best).
 2. Pick a **paint mode** and mark the image:
@@ -63,9 +70,11 @@ Plain HTML/CSS/JS with **zero dependencies**. Either:
 
 | File | What it is |
 |------|------------|
-| `index.html` | markup / layout |
-| `style.css`  | the warm dark theme |
-| `app.js`     | all the logic — painting, bucket fill, selection tools, PNG-8 encoder |
+| `index.html` | the tool picker / landing screen |
+| `studio.html` | Color Studio markup / layout (uses `style.css` + `app.js`) |
+| `brush.html` | Brush Dither tool — self-contained (own styles + logic) |
+| `style.css`  | the warm dark theme (Color Studio) |
+| `app.js`     | Color Studio logic — painting, bucket fill, selection tools, PNG-8 encoder |
 
 ## Credits
 

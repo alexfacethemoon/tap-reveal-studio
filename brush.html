@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Brush Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #0c0d11; --cream-2: #14161d; --cream-3: #1b1e28;
+    --ink: #e9ecf2; --ink-soft: #b9c0cf; --muted: #8b91a3;
+    --line: #2a2e3a; --terra: #ffb347; --terra-deep: #e69a2e;
+    --tan: #4fd1c5; --green: #64ff96;
+    --serif: "Space Grotesk", "Sora", sans-serif;
+    --sans: "Sora", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: var(--sans); background: var(--cream); color: var(--ink); margin: 0; padding: 32px 24px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  h1 { font-family: var(--serif); font-weight: 400; font-size: 40px; letter-spacing: -0.02em; margin: 0 0 8px; line-height: 1.05; }
+  h1 em { font-style: italic; color: var(--terra); }
+  .tagline { color: var(--ink-soft); margin: 0 0 28px; font-size: 16px; line-height: 1.5; max-width: 720px; }
+
+  .drop {
+    border: 1.5px dashed var(--line);
+    border-radius: 20px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--cream-2);
+  }
+  .drop:hover, .drop.over { border-color: var(--terra); background: var(--cream-3); }
+  .drop .big { font-family: var(--serif); font-size: 20px; font-weight: 500; margin: 4px 0; letter-spacing: -0.01em; }
+  .drop .small { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  input[type=file] { display: none; }
+
+  /* Brush tool specific */
+  /* ─── Workspace layout: sidebar + canvas ─── */
+  /* The grid fills a bounded viewport-height region; only the canvas column scrolls.
+     This keeps the sidebar and its tools locked in place while panning or scrolling
+     the drawing. No fixed positioning needed — the row itself is the scroll cap. */
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+    margin-top: 20px;
+    align-items: stretch;
+    height: calc(100vh - 140px);
+    min-height: 500px;
+  }
+  @media (max-width: 900px) {
+    .workspace-grid {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+  }
+  .sidebar {
+    background: var(--cream-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    height: 100%;
+    align-self: start;
+    max-height: 100%;
+  }
+  @media (max-width: 900px) {
+    .sidebar {
+      max-height: none;
+      height: auto;
+    }
+  }
+  /* Canvas column wraps the canvas-area so only it scrolls */
+  .canvas-col {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  @media (max-width: 900px) {
+    .canvas-col { height: auto; overflow: visible; }
+  }
+  .sidebar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sidebar-label {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+    margin-bottom: 2px;
+    padding-left: 2px;
+  }
+  .sidebar .tool-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 9px 12px;
+  }
+  .sidebar .slider-ctrl {
+    width: 100%;
+    padding: 8px 12px;
+  }
+  .sidebar .action-btn,
+  .sidebar .action-btn.small {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  /* Legacy .toolbar preserved in case */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .tool-btn {
+    background: var(--cream);
+    color: var(--ink);
+    border: 1.5px solid var(--line);
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sans);
+    transition: all .15s;
+  }
+  .tool-btn:hover { background: var(--cream-3); }
+  .tool-btn.active { border-color: var(--terra); background: rgba(255,179,71,.14); color: var(--terra-deep); }
+  .tool-btn .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+  .tool-btn .dot.solid { background: #000; }
+  .tool-btn .dot.hidden { background: repeating-linear-gradient(45deg, #000, #000 2px, #fff 2px, #fff 4px); }
+  .tool-btn .dot.shadow { background: repeating-linear-gradient(45deg, #000, #000 1px, #fff 1px, #fff 6px); }
+  .tool-btn .dot.black { background: #000; border: 1px solid var(--terra); }
+  .tool-btn .dot.erase { background: #fff; }
+  .tool-btn .dot.visible { background: #6cf; }
+
+  .slider-ctrl {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .slider-ctrl input[type=range] { width: 100px; accent-color: var(--terra); }
+  .slider-ctrl .val { color: var(--terra); font-weight: 600; min-width: 36px; text-align: right; font-family: var(--serif); font-style: italic; }
+
+  .action-btn {
+    background: var(--terra);
+    color: #0b0c10;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .15s;
+    letter-spacing: -0.005em;
+  }
+  .action-btn:hover { background: var(--terra-deep); }
+  .action-btn.green { background: var(--green); }
+  .action-btn.green:hover { background: #4fd98a; }
+  .action-btn.secondary { background: var(--cream-3); color: var(--ink); }
+  .action-btn.secondary:hover { background: var(--line); }
+  .action-btn.small { padding: 7px 14px; font-size: 12px; }
+  button { font-family: var(--sans); }
+
+  .canvas-area {
+    margin-top: 0;
+    background: #0a0b0e;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    min-height: 300px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .canvas-scroll {
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+  @media (max-width: 900px) {
+    .canvas-area { flex: none; }
+    .canvas-scroll { max-height: 75vh; flex: none; }
+  }
+  .canvas-stack {
+    position: relative;
+    display: inline-block;
+    transform-origin: 0 0;
+  }
+  .canvas-stack canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .canvas-stack canvas:first-child { position: relative; }
+
+  .legend {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--cream-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
+  .legend .swatch {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-right: 6px;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+
+  .preview-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 20px;
+  }
+  @media (max-width: 700px) { .preview-section { grid-template-columns: 1fr; } }
+  .preview {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--cream-2);
+  }
+  .preview .label {
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--cream-2);
+    color: var(--ink);
+    border-bottom: 1px solid var(--line);
+    letter-spacing: -0.005em;
+  }
+  .preview .img-box {
+    padding: 14px;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview img { max-width: 100%; max-height: 450px; display: block; }
+
+  .hidden { display: none; }
+  .notes {
+    margin-top: 24px;
+    padding: 22px 26px;
+    background: var(--cream-2);
+    border-radius: 16px;
+    border-left: 3px solid var(--terra);
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+  .notes strong { color: var(--ink); font-weight: 600; }
+  .notes ul { padding-left: 18px; margin: 8px 0; }
+  .notes li { margin-bottom: 4px; }
+
+  /* ─── Shape picker ─── */
+  .shape-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .shape-btn {
+    background: var(--cream);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    aspect-ratio: 1;
+  }
+  .shape-btn:hover { background: var(--cream-3); }
+  .shape-btn.active { border-color: var(--terra); background: rgba(255,179,71,.14); }
+  .shape-btn svg { width: 18px; height: 18px; color: var(--ink); display: block; }
+  .shape-btn.active svg { color: var(--terra-deep); }
+
+  #cursor {
+    position: absolute;
+    pointer-events: none;
+    border: 2px solid var(--terra);
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 100;
+    box-shadow: 0 0 0 1px rgba(244,243,238,0.4);
+  }
+  #cursor.shape-round { border-radius: 50%; }
+  #cursor.shape-square { border-radius: 2px; }
+  #cursor.shape-triangle {
+    border: none;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    background: rgba(193,95,60,0.25);
+    outline: 2px solid var(--terra);
+    outline-offset: -1px;
+  }
+  #cursor.shape-hline { border-radius: 2px; }
+  #cursor.shape-vline { border-radius: 2px; }
+
+  /* ─── Hover tooltips ─── */
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]::before,
+  [data-tip]::after {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    transform: translate(-50%, 4px);
+    z-index: 200;
+  }
+  [data-tip]::before {
+    content: attr(data-tip);
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+    padding: 8px 11px;
+    border-radius: 8px;
+    white-space: normal;
+    width: max-content;
+    max-width: 240px;
+    text-align: center;
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.35);
+  }
+  [data-tip]::after {
+    content: "";
+    bottom: calc(100% + 4px);
+    width: 0; height: 0;
+    border: 6px solid transparent;
+    border-top-color: var(--ink);
+    transform: translate(-50%, 0);
+  }
+  [data-tip]:hover::before,
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::before,
+  [data-tip]:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  /* Below variant: tip appears below the element (for items near top of viewport) */
+  [data-tip-pos="below"]::before { bottom: auto; top: calc(100% + 10px); transform: translate(-50%, -4px); }
+  [data-tip-pos="below"]::after { bottom: auto; top: calc(100% + 4px); border-top-color: transparent; border-bottom-color: var(--ink); }
+  [data-tip-pos="below"]:hover::before,
+  [data-tip-pos="below"]:focus-visible::before { transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+
+<a href="index.html" title="Back to tool picker" style="position:fixed;top:16px;right:18px;z-index:300;font:600 12px/1 var(--sans);color:var(--muted);text-decoration:none;background:var(--cream-2);border:1px solid var(--line);padding:9px 13px;border-radius:999px">← Tools</a>
+
+<div class="wrap">
+  <h1>Brush <em>Mode</em></h1>
+  <p class="tagline">Paint exactly which parts should be visible vs hidden. Uses the exact 4×4 dither tile reverse-engineered from real tap-me artist uploads.</p>
+
+  <label class="drop" id="drop">
+    <p class="big">Click or drop an image here to start</p>
+    <p class="small">Line art / drawings / sketches. Anything works</p>
+    <input type="file" id="file" accept="image/*">
+  </label>
+
+  <div id="workspace" class="hidden">
+    <div class="workspace-grid">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Brush mode</div>
+          <button class="tool-btn active" data-mode="hidden" id="tool-hidden" data-tip="Paints pink. Dark pixels under this become a sparse dither that vanishes in the feed thumbnail but shows on tap.">
+            <span class="dot hidden"></span> Hidden until tap
+          </button>
+          <button class="tool-btn" data-mode="shadow" id="tool-shadow" data-tip="Paints yellow. Creates a very sparse shadow pattern that works even on blank white areas.">
+            <span class="dot shadow"></span> Shadow (sparser)
+          </button>
+          <button class="tool-btn" data-mode="solid" id="tool-solid" data-tip="Paints blue. Dark pixels under this stay visible in the feed thumbnail (bold / important elements).">
+            <span class="dot solid"></span> Always visible (bold)
+          </button>
+          <button class="tool-btn" data-mode="black" id="tool-black" data-tip="Paints green. Becomes solid black in the output wherever you paint, even over blank white areas. Use this for adding new text or shapes.">
+            <span class="dot black"></span> Pure black (no pattern)
+          </button>
+          <button class="tool-btn" data-mode="erase" id="tool-erase" data-tip="Removes paint back to unmarked. Right-click does this too.">
+            <span class="dot erase"></span> Erase to background
+          </button>
+          <button class="tool-btn" id="tool-bucket" data-tip="Toggle bucket fill. Click inside a region to flood-fill with the active mask color.">
+            🪣 Bucket fill
+          </button>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Brush shape</div>
+          <div class="shape-grid">
+            <button class="shape-btn active" data-shape="round" data-tip="Round brush. Soft edges, good for general painting." data-tip-pos="below">
+              <svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="7"/></svg>
+            </button>
+            <button class="shape-btn" data-shape="square" data-tip="Square brush. Hard edges, great for blocky shapes." data-tip-pos="below">
+              <svg viewBox="0 0 20 20" fill="currentColor"><rect x="3" y="3" width="14" height="14"/></svg>
+            </button>
+            <button class="shape-btn" data-shape="triangle" data-tip="Triangle brush. Good for corners and pointed edges." data-tip-pos="below">
+              <svg viewBox="0 0 20 20" fill="currentColor"><polygon points="10,2 18,17 2,17"/></svg>
+            </button>
+            <button class="shape-btn" data-shape="hline" data-tip="Horizontal line brush. Great for painting along horizontal edges." data-tip-pos="below">
+              <svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="8" width="16" height="4" rx="1"/></svg>
+            </button>
+            <button class="shape-btn" data-shape="vline" data-tip="Vertical line brush. Great for painting along vertical edges." data-tip-pos="below">
+              <svg viewBox="0 0 20 20" fill="currentColor"><rect x="8" y="2" width="4" height="16" rx="1"/></svg>
+            </button>
+          </div>
+        </div>
+
+                <div class="sidebar-section">
+          <div class="sidebar-label">Controls</div>
+          <div class="slider-ctrl">
+            🖌️ Brush: <input type="range" id="brushSize" min="5" max="100" value="25"> <span class="val" id="brushVal">25</span>
+          </div>
+          <div class="slider-ctrl">
+            🔍 Zoom: <input type="range" id="zoom" min="25" max="200" value="100"> <span class="val" id="zoomVal">100%</span>
+          </div>
+          <div class="slider-ctrl">
+            🎨 Darkness: <input type="range" id="darkThresh" min="50" max="240" value="200"> <span class="val" id="darkThreshVal">200</span>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Actions</div>
+          <button class="action-btn secondary small" id="autoDetect" data-tip="Automatically paints every dark pixel pink (hidden). Great starting point then paint blue over parts you want visible.">✨ Mark all as hidden</button>
+          <button class="action-btn secondary small" id="undo" data-tip="Undo the last brush stroke or bucket fill (up to 20 steps).">↩ Undo</button>
+          <button class="action-btn secondary small" id="clearAll" data-tip="Wipes all paint. The source image is untouched.">🗑 Clear mask</button>
+          <button class="action-btn" id="generate" data-tip="Bake the paint mask into a final tap-me PNG ready to upload.">🔄 Generate PNG</button>
+        </div>
+      </aside>
+
+      <div class="canvas-col">
+        <div class="legend">
+          <span class="swatch" style="background:repeating-linear-gradient(45deg,rgba(255,100,100,.7),rgba(255,100,100,.7) 3px,transparent 3px,transparent 6px)"></span>
+          Pink = "Hidden" (sparse)
+          &nbsp;&nbsp;
+          <span class="swatch" style="background:rgba(255,220,100,.7)"></span>
+          Yellow = "Shadow" (very sparse, works on white too)
+          &nbsp;&nbsp;
+          <span class="swatch" style="background:rgba(100,200,255,.6)"></span>
+          Blue = "Visible" (dense)
+          &nbsp;&nbsp;
+          <span class="swatch" style="background:rgba(100,255,150,.6)"></span>
+          Green = "Pure black" (no pattern)
+          &nbsp;&nbsp;
+          Right-click to erase.
+        </div>
+        <div class="canvas-area">
+          <div class="canvas-scroll" id="scroll">
+            <div class="canvas-stack" id="stack">
+              <canvas id="imgCanvas"></canvas>
+              <canvas id="maskCanvas"></canvas>
+            </div>
+            <div id="cursor" class="shape-round"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="preview-section">
+        <div class="preview">
+          <div class="label">📤 Final PNG (what you upload)</div>
+          <div class="img-box"><img id="preview-full"></div>
+        </div>
+        <div class="preview">
+          <div class="label">🔍 Zoom into a line art area</div>
+          <div class="img-box"><img id="preview-zoom"></div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 10px;">
+        <a id="download" class="action-btn green" download="tapme.png">⬇ Download PNG</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <strong>How it works:</strong>
+    <ul>
+      <li>Drop your image. The painted mask tells the tool what to do with the <strong>dark pixels</strong> of your drawing. It never adds new marks outside your line art.</li>
+      <li><strong>🎯 Easiest workflow:</strong> hit <strong>Auto-detect</strong> first (marks everything pink/hidden by default), then use the <strong>blue brush</strong> to repaint over the parts you want visible (TAP ME text, bold elements, etc.).</li>
+      <li>You can also paint manually from scratch: pink over line art you want hidden, blue over bold elements that should stay visible.</li>
+      <li>Right-click or use the eraser to remove mask paint.</li>
+      <li>You don't need to paint precisely, just cover the region. The dither pattern only applies to dark pixels that are under your paint.</li>
+      <li>When you're done, hit <strong>Generate</strong>. Download and upload to Twitter via the app with HD uploads ON.</li>
+    </ul>
+    <strong>Pattern used:</strong> The exact 4×4 diagonal dither tile extracted from real tap-me artist uploads. Solid areas get the inverted pattern (62.5% black, looks near-solid). Hidden areas get the normal pattern (37.5% black, vanishes in thumbnails).
+  </div>
+</div>
+
+<script>
+const els = {
+  drop: document.getElementById('drop'),
+  file: document.getElementById('file'),
+  workspace: document.getElementById('workspace'),
+  imgCanvas: document.getElementById('imgCanvas'),
+  maskCanvas: document.getElementById('maskCanvas'),
+  scroll: document.getElementById('scroll'),
+  stack: document.getElementById('stack'),
+  cursor: document.getElementById('cursor'),
+  result: document.getElementById('result'),
+  previewFull: document.getElementById('preview-full'),
+  previewZoom: document.getElementById('preview-zoom'),
+  download: document.getElementById('download'),
+  brushSize: document.getElementById('brushSize'),
+  zoom: document.getElementById('zoom'),
+  generate: document.getElementById('generate'),
+  autoDetect: document.getElementById('autoDetect'),
+  undo: document.getElementById('undo'),
+  clearAll: document.getElementById('clearAll'),
+};
+
+let srcImage = null;
+let srcName = 'tapme';
+let mode = 'hidden';
+let brushShape = 'round';
+let bucketMode = false;
+let isPainting = false;
+let isRightClick = false;
+let undoStack = [];
+const MAX_UNDO = 20;
+
+// Tool buttons
+// Shape picker
+document.querySelectorAll('.shape-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.shape-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    brushShape = b.dataset.shape;
+  });
+});
+
+document.querySelectorAll('.tool-btn').forEach(b => {
+  if (b.id === 'tool-bucket') return; // handled separately below
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn').forEach(x => {
+      if (x.id !== 'tool-bucket') x.classList.remove('active');
+    });
+    b.classList.add('active');
+    mode = b.dataset.mode;
+  });
+});
+
+document.getElementById('tool-bucket').addEventListener('click', () => {
+  bucketMode = !bucketMode;
+  document.getElementById('tool-bucket').classList.toggle('active', bucketMode);
+});
+
+// File handling
+els.drop.addEventListener('click', () => els.file.click());
+els.drop.addEventListener('dragover', e => { e.preventDefault(); els.drop.classList.add('over'); });
+els.drop.addEventListener('dragleave', () => els.drop.classList.remove('over'));
+els.drop.addEventListener('drop', e => {
+  e.preventDefault();
+  els.drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+els.file.addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  srcName = file.name.replace(/\.[^.]+$/, '') + '_tapme';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      srcImage = img;
+      setupCanvases();
+      els.workspace.classList.remove('hidden');
+      els.drop.style.display = 'none';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setupCanvases() {
+  const W = srcImage.width, H = srcImage.height;
+  els.imgCanvas.width = W;
+  els.imgCanvas.height = H;
+  els.maskCanvas.width = W;
+  els.maskCanvas.height = H;
+  els.stack.style.width = W + 'px';
+  els.stack.style.height = H + 'px';
+
+  const ictx = els.imgCanvas.getContext('2d');
+  ictx.fillStyle = '#fff';
+  ictx.fillRect(0, 0, W, H);
+  ictx.drawImage(srcImage, 0, 0);
+
+  // Clear mask
+  els.maskCanvas.getContext('2d').clearRect(0, 0, W, H);
+  undoStack = [];
+
+  applyZoom();
+}
+
+function applyZoom() {
+  const z = parseInt(els.zoom.value) / 100;
+  els.stack.style.transform = `scale(${z})`;
+  els.stack.style.transformOrigin = '0 0';
+  // Adjust scroll container to compensate
+  const W = els.imgCanvas.width * z;
+  const H = els.imgCanvas.height * z;
+  els.stack.style.width = W + 'px';
+  els.stack.style.height = H + 'px';
+}
+
+els.zoom.addEventListener('input', () => {
+  document.getElementById('zoomVal').textContent = els.zoom.value + '%';
+  applyZoom();
+});
+els.brushSize.addEventListener('input', () => {
+  document.getElementById('brushVal').textContent = els.brushSize.value;
+});
+document.getElementById('darkThresh').addEventListener('input', e => {
+  document.getElementById('darkThreshVal').textContent = e.target.value;
+});
+
+// Painting
+function getCanvasCoords(e) {
+  const rect = els.maskCanvas.getBoundingClientRect();
+  const z = parseInt(els.zoom.value) / 100;
+  return {
+    x: (e.clientX - rect.left) / z,
+    y: (e.clientY - rect.top) / z
+  };
+}
+
+function saveUndo() {
+  const data = els.maskCanvas.getContext('2d').getImageData(0, 0, els.maskCanvas.width, els.maskCanvas.height);
+  undoStack.push(data);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+// Trace the selected brush shape as a path. Used by paintAt for painting and erasing.
+function traceShape(ctx, x, y, radius, shape) {
+  ctx.beginPath();
+  if (shape === 'square') {
+    ctx.rect(x - radius, y - radius, radius * 2, radius * 2);
+  } else if (shape === 'triangle') {
+    ctx.moveTo(x, y - radius);
+    ctx.lineTo(x + radius, y + radius);
+    ctx.lineTo(x - radius, y + radius);
+    ctx.closePath();
+  } else if (shape === 'hline') {
+    const thick = Math.max(2, radius / 2.5);
+    ctx.rect(x - radius, y - thick / 2, radius * 2, thick);
+  } else if (shape === 'vline') {
+    const thick = Math.max(2, radius / 2.5);
+    ctx.rect(x - thick / 2, y - radius, thick, radius * 2);
+  } else {
+    // round (default)
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+  }
+}
+
+function paintAt(x, y, erase) {
+  const ctx = els.maskCanvas.getContext('2d');
+  const radius = parseInt(els.brushSize.value);
+  const actualMode = erase ? 'erase' : mode;
+
+  if (actualMode === 'erase') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    traceShape(ctx, x, y, radius, brushShape);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    let color;
+    if (actualMode === 'solid') color = 'rgba(100, 200, 255, 0.6)';       // blue
+    else if (actualMode === 'shadow') color = 'rgba(255, 220, 100, 0.6)'; // yellow
+    else if (actualMode === 'black') color = 'rgba(100, 255, 150, 0.6)';  // green
+    else color = 'rgba(255, 100, 100, 0.6)';                               // pink
+    ctx.fillStyle = color;
+    traceShape(ctx, x, y, radius, brushShape);
+    ctx.fill();
+  }
+}
+
+// Bucket fill: flood-fill on the SOURCE image starting from (sx,sy).
+// Treats the click point's brightness as the "fill type" and fills connected
+// pixels of similar brightness. The dark line art naturally blocks the flood.
+function bucketFill(sx, sy, erase) {
+  const W = els.imgCanvas.width, H = els.imgCanvas.height;
+  if (sx < 0 || sx >= W || sy < 0 || sy >= H) return;
+
+  const ictx = els.imgCanvas.getContext('2d');
+  const srcData = ictx.getImageData(0, 0, W, H).data;
+
+  // Get source luminance at click point
+  const startIdx = (sy * W + sx) * 4;
+  const startLum = 0.299 * srcData[startIdx] + 0.587 * srcData[startIdx+1] + 0.114 * srcData[startIdx+2];
+
+  // Tolerance: how far from the start luminance still counts as "same region"
+  const TOLERANCE = 60;
+
+  // Flood fill (iterative, queue-based)
+  const visited = new Uint8Array(W * H);
+  const stack = [[sx, sy]];
+  const filled = []; // list of pixel indices to paint
+
+  while (stack.length > 0) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= W || y < 0 || y >= H) continue;
+    const i = y * W + x;
+    if (visited[i]) continue;
+    const p = i * 4;
+    const lum = 0.299 * srcData[p] + 0.587 * srcData[p+1] + 0.114 * srcData[p+2];
+    if (Math.abs(lum - startLum) > TOLERANCE) continue;
+    visited[i] = 1;
+    filled.push(i);
+    stack.push([x+1, y]);
+    stack.push([x-1, y]);
+    stack.push([x, y+1]);
+    stack.push([x, y-1]);
+  }
+
+  // Now paint the mask for all filled pixels
+  const mctx = els.maskCanvas.getContext('2d');
+  const maskImg = mctx.getImageData(0, 0, W, H);
+
+  let r, g, b, a;
+  if (erase) {
+    r = 0; g = 0; b = 0; a = 0;
+  } else {
+    if (mode === 'solid')       { r = 100; g = 200; b = 255; a = 153; }
+    else if (mode === 'shadow') { r = 255; g = 220; b = 100; a = 153; }
+    else if (mode === 'black')  { r = 100; g = 255; b = 150; a = 153; }
+    else                        { r = 255; g = 100; b = 100; a = 153; }
+  }
+
+  for (const i of filled) {
+    const p = i * 4;
+    if (erase) {
+      maskImg.data[p+3] = 0;
+    } else {
+      maskImg.data[p] = r;
+      maskImg.data[p+1] = g;
+      maskImg.data[p+2] = b;
+      maskImg.data[p+3] = a;
+    }
+  }
+  mctx.putImageData(maskImg, 0, 0);
+}
+
+els.maskCanvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  saveUndo();
+  isRightClick = e.button === 2;
+  const c = getCanvasCoords(e);
+  if (bucketMode) {
+    bucketFill(Math.round(c.x), Math.round(c.y), isRightClick);
+    isPainting = false; // single click, no drag
+    isRightClick = false;
+  } else {
+    isPainting = true;
+    paintAt(c.x, c.y, isRightClick);
+  }
+});
+
+let lastCoord = null;
+document.addEventListener('mousemove', e => {
+  if (!srcImage) return;
+  const c = getCanvasCoords(e);
+  // Update cursor
+  const rect = els.scroll.getBoundingClientRect();
+  const stackRect = els.stack.getBoundingClientRect();
+  els.cursor.style.display = 'block';
+  els.cursor.style.left = (e.clientX - rect.left + els.scroll.scrollLeft) + 'px';
+  els.cursor.style.top = (e.clientY - rect.top + els.scroll.scrollTop) + 'px';
+  const z = parseInt(els.zoom.value) / 100;
+  // Keep the cursor DOM class in sync with the chosen shape
+  const shapeClass = bucketMode ? 'shape-round' : ('shape-' + brushShape);
+  if (!els.cursor.classList.contains(shapeClass)) {
+    els.cursor.className = shapeClass;
+  }
+  if (bucketMode) {
+    const size = 16;
+    els.cursor.style.width = size + 'px';
+    els.cursor.style.height = size + 'px';
+  } else {
+    const r = parseInt(els.brushSize.value);
+    const w = r * 2 * z;
+    const h = r * 2 * z;
+    if (brushShape === 'hline') {
+      els.cursor.style.width = w + 'px';
+      els.cursor.style.height = Math.max(2, (r / 2.5) * z) + 'px';
+    } else if (brushShape === 'vline') {
+      els.cursor.style.width = Math.max(2, (r / 2.5) * z) + 'px';
+      els.cursor.style.height = h + 'px';
+    } else {
+      els.cursor.style.width = w + 'px';
+      els.cursor.style.height = h + 'px';
+    }
+  }
+  els.cursor.style.borderColor = isRightClick ? '#fff'
+    : (mode === 'solid' ? '#6cf'
+    : mode === 'shadow' ? '#fd6'
+    : mode === 'black' ? '#6f9'
+    : '#f66');
+
+  if (isPainting) {
+    // Fill line between last and current to avoid gaps
+    if (lastCoord) {
+      const dx = c.x - lastCoord.x, dy = c.y - lastCoord.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const steps = Math.max(1, Math.ceil(dist / 4));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        paintAt(lastCoord.x + dx * t, lastCoord.y + dy * t, isRightClick);
+      }
+    } else {
+      paintAt(c.x, c.y, isRightClick);
+    }
+    lastCoord = c;
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  isPainting = false;
+  isRightClick = false;
+  lastCoord = null;
+});
+
+els.maskCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Auto-detect button: mark ALL dark pixels as "hidden" (pink).
+// Uses the adjustable darkness threshold.
+els.autoDetect.addEventListener('click', () => {
+  saveUndo();
+  const W = els.imgCanvas.width, H = els.imgCanvas.height;
+  const ictx = els.imgCanvas.getContext('2d');
+  const mctx = els.maskCanvas.getContext('2d');
+
+  const imgData = ictx.getImageData(0, 0, W, H);
+  const maskData = mctx.getImageData(0, 0, W, H);
+  const N = W * H;
+  const threshold = parseInt(document.getElementById('darkThresh').value);
+
+  for (let i = 0; i < N; i++) {
+    const p = i * 4;
+    const lum = 0.299 * imgData.data[p] + 0.587 * imgData.data[p+1] + 0.114 * imgData.data[p+2];
+    if (lum < threshold && imgData.data[p+3] >= 128) {
+      // Pink (hidden)
+      maskData.data[p] = 255;
+      maskData.data[p+1] = 100;
+      maskData.data[p+2] = 100;
+      maskData.data[p+3] = 153;
+    }
+  }
+  mctx.putImageData(maskData, 0, 0);
+});
+
+// Undo / Clear
+els.undo.addEventListener('click', () => {
+  if (undoStack.length > 0) {
+    const last = undoStack.pop();
+    els.maskCanvas.getContext('2d').putImageData(last, 0, 0);
+  }
+});
+els.clearAll.addEventListener('click', () => {
+  saveUndo();
+  els.maskCanvas.getContext('2d').clearRect(0, 0, els.maskCanvas.width, els.maskCanvas.height);
+});
+
+// Generate final output
+els.generate.addEventListener('click', async () => {
+  const srcW = els.imgCanvas.width, srcH = els.imgCanvas.height;
+
+  // Decide the processing resolution. The pattern must be drawn at 1 pixel per dot,
+  // so we resample the source and mask to a target size BEFORE computing the pattern.
+  // Target: ~3600px long side with an integer scale factor so upscaling produces
+  // uniform NxN blocks. For inputs already larger than 3600, we downscale.
+  const TARGET = 3600;
+  const srcLong = Math.max(srcW, srcH);
+  let W, H;
+  if (srcLong >= TARGET) {
+    // Downscale to ~3600 long side. Bilinear (smoothing on) gives clean antialiased
+    // edges before we dither. Keep aspect ratio.
+    const k = TARGET / srcLong;
+    W = Math.max(1, Math.round(srcW * k));
+    H = Math.max(1, Math.round(srcH * k));
+  } else {
+    // Smaller than target: process at native size, upscale later by integer factor
+    W = srcW;
+    H = srcH;
+  }
+
+  // Render source and mask into working canvases at (W,H)
+  const workSrc = document.createElement('canvas');
+  workSrc.width = W; workSrc.height = H;
+  const wsCtx = workSrc.getContext('2d', { willReadFrequently: true });
+  wsCtx.imageSmoothingEnabled = true;
+  wsCtx.imageSmoothingQuality = 'high';
+  wsCtx.fillStyle = '#fff';
+  wsCtx.fillRect(0, 0, W, H);
+  wsCtx.drawImage(els.imgCanvas, 0, 0, W, H);
+  const srcData = wsCtx.getImageData(0, 0, W, H).data;
+
+  const workMask = document.createElement('canvas');
+  workMask.width = W; workMask.height = H;
+  const wmCtx = workMask.getContext('2d', { willReadFrequently: true });
+  // Nearest neighbor for mask so paint regions stay crisp
+  wmCtx.imageSmoothingEnabled = false;
+  wmCtx.drawImage(els.maskCanvas, 0, 0, W, H);
+  const maskData = wmCtx.getImageData(0, 0, W, H).data;
+
+  const darkThresh = parseInt(document.getElementById('darkThresh').value);
+
+  // Build output: for each pixel, check if it's dark in source AND what color the mask is
+  const out = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const p = i * 4;
+
+      // Is this pixel dark in the source?
+      const r = srcData[p], g = srcData[p+1], b = srcData[p+2], a = srcData[p+3];
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      const isDark = (a >= 128) && (lum < darkThresh);
+
+      // What's the mask say?
+      const mr = maskData[p], mg = maskData[p+1], mb = maskData[p+2], ma = maskData[p+3];
+      const isMasked = ma > 20;
+      // Classify by dominant channel:
+      // - Yellow (high R + high G, low B) -> shadow
+      // - Green (low R + high G, low-mid B) -> pure black
+      // - Blue dominant -> solid (visible)
+      // - Red dominant -> hidden
+      const isYellow = isMasked && mr > 150 && mg > 150 && mb < 150;
+      const isGreen = isMasked && !isYellow && mg > 150 && mg > mr && mg > mb;
+      const isSolidMask = isMasked && !isYellow && !isGreen && mb > mr;
+      const isHiddenMask = isMasked && !isYellow && !isGreen && mr > mb;
+
+      let v = 255;  // default: white
+      const inPattern = patternBlack(x, y);
+      const inShadow = patternShadow(x, y);
+
+      if (isYellow) {
+        // Shadow mode: apply sparse shadow pattern (works regardless of source)
+        if (inShadow) v = 0;
+      } else if (isGreen) {
+        // Pure black mode: paints black wherever you painted green, regardless of source.
+        // This lets you add new content (text, shapes) on top of blank areas.
+        v = 0;
+      } else if (isDark && isSolidMask) {
+        // Dark source + blue mask -> inverted pattern (dense)
+        if (!inPattern) v = 0;
+      } else if (isDark && isHiddenMask) {
+        // Dark source + pink mask -> normal pattern (sparse)
+        if (inPattern) v = 0;
+      } else if (isDark && !isMasked) {
+        // Dark source but not painted -> leave as pure black (unclassified)
+        v = 0;
+      }
+      // White source or painted but no dark underneath -> stays white
+
+      out[p] = v; out[p+1] = v; out[p+2] = v; out[p+3] = 255;
+    }
+  }
+
+  // Integer upscale so every pattern dot becomes a uniform NxN block.
+  // For W,H already near TARGET, intScale ends up as 1 (1:1 output).
+  // For smaller inputs, intScale is 2+, giving crisp 2x2 or 4x4 blocks.
+  // Cap at 16M pixels to avoid memory blowups.
+  let intScale = Math.max(1, Math.ceil(TARGET / Math.max(W, H)));
+  while (W * intScale * H * intScale > 16000000 && intScale > 1) intScale--;
+  const finalW = W * intScale;
+  const finalH = H * intScale;
+
+  const baseCanvas = document.createElement('canvas');
+  baseCanvas.width = W;
+  baseCanvas.height = H;
+  baseCanvas.getContext('2d').putImageData(new ImageData(out, W, H), 0, 0);
+
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width = finalW;
+  finalCanvas.height = finalH;
+  const fctx = finalCanvas.getContext('2d');
+  fctx.imageSmoothingEnabled = false;
+  fctx.drawImage(baseCanvas, 0, 0, finalW, finalH);
+
+  // To match the reference artist's format, we want PNG-8 indexed with 2 colors.
+  // Browser canvas can't directly output indexed PNG, but we can use UPNG.js
+  // to encode. Since we want a lightweight single-file tool, we'll use a
+  // workaround: encode the pixel data manually as an indexed PNG.
+  const indexedBlob = await encodeIndexedPNG(finalCanvas);
+  const url = URL.createObjectURL(indexedBlob);
+  els.previewFull.src = url;
+  els.download.href = url;
+  els.download.download = srcName + '.png';
+
+  // Zoom preview
+  const zc = document.createElement('canvas');
+  zc.width = 400;
+  zc.height = 400;
+  zc.getContext('2d').imageSmoothingEnabled = false;
+  zc.getContext('2d').drawImage(finalCanvas, finalW/3, finalH/3, 400, 400, 0, 0, 400, 400);
+  els.previewZoom.src = zc.toDataURL('image/png');
+
+  els.result.classList.remove('hidden');
+});
+
+// Exact 4x4 tile from reverse-engineering real tap-me artists
+function patternBlack(x, y) {
+  const tx = ((x % 4) + 4) % 4;
+  const ty = ((y % 4) + 4) % 4;
+  if (ty === 0) return tx === 0;
+  if (ty === 1) return tx === 1 || tx === 3;
+  if (ty === 2) return tx === 2;
+  if (ty === 3) return tx === 1 || tx === 3;
+  return false;
+}
+
+// Shadow pattern: same diagonal structure but only every other diagonal line active.
+// Effectively the 4x4 tile but on an 8x8 grid with only "even" 4x4 blocks filled.
+// Produces ~10% density. Much sparser, creates shadow/gradient look.
+function patternShadow(x, y) {
+  // Only activate in 4x4 blocks where (blockX + blockY) is even
+  const blockX = Math.floor(x / 4);
+  const blockY = Math.floor(y / 4);
+  if (((blockX + blockY) % 2) !== 0) return false;
+  return patternBlack(x, y);
+}
+
+// Minimal indexed (PNG-8) encoder with 2-color palette (white, black).
+// Matches the format real tap-me artists use. Much smaller files + different
+// handling by Twitter's image pipeline.
+async function encodeIndexedPNG(canvas) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const data = ctx.getImageData(0, 0, W, H).data;
+
+  // Build indexed image: 0 = white, 1 = black
+  // PNG-8 with 1-bit depth uses 1 bit per pixel; rows are byte-aligned.
+  const bytesPerRow = Math.ceil(W / 8);
+  // Each row prefixed with 1 filter byte (0 = no filter)
+  const rawSize = H * (1 + bytesPerRow);
+  const raw = new Uint8Array(rawSize);
+  let outPos = 0;
+  for (let y = 0; y < H; y++) {
+    raw[outPos++] = 0; // filter: None
+    let bitBuf = 0, bitCount = 0, rowByte = 0;
+    for (let x = 0; x < W; x++) {
+      const p = (y * W + x) * 4;
+      // 1 if pixel is black (dark), 0 if white
+      const lum = data[p]; // output is grayscale so r=g=b
+      const idx = (lum < 128) ? 1 : 0;
+      bitBuf = (bitBuf << 1) | idx;
+      bitCount++;
+      if (bitCount === 8) {
+        raw[outPos++] = bitBuf;
+        bitBuf = 0; bitCount = 0;
+      }
+    }
+    if (bitCount > 0) {
+      bitBuf <<= (8 - bitCount);
+      raw[outPos++] = bitBuf;
+    }
+  }
+
+  // Compress with pako-free approach: use browser's built-in CompressionStream
+  const compressed = await compressDeflate(raw);
+
+  // Build PNG chunks
+  const chunks = [];
+  // IHDR: 13 bytes
+  const ihdr = new Uint8Array(13);
+  writeUint32(ihdr, 0, W);
+  writeUint32(ihdr, 4, H);
+  ihdr[8] = 1;  // bit depth: 1 bit per pixel
+  ihdr[9] = 3;  // color type: 3 = indexed
+  ihdr[10] = 0; // compression method
+  ihdr[11] = 0; // filter method
+  ihdr[12] = 0; // interlace
+  chunks.push(makeChunk('IHDR', ihdr));
+
+  // PLTE: palette (white, black)
+  const plte = new Uint8Array([255, 255, 255, 0, 0, 0]);
+  chunks.push(makeChunk('PLTE', plte));
+
+  // IDAT: compressed raw data
+  chunks.push(makeChunk('IDAT', compressed));
+
+  // IEND
+  chunks.push(makeChunk('IEND', new Uint8Array(0)));
+
+  // Assemble PNG
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  let totalLen = signature.length;
+  for (const c of chunks) totalLen += c.length;
+  const png = new Uint8Array(totalLen);
+  let pos = 0;
+  png.set(signature, pos); pos += signature.length;
+  for (const c of chunks) {
+    png.set(c, pos);
+    pos += c.length;
+  }
+  return new Blob([png], { type: 'image/png' });
+}
+
+function writeUint32(arr, off, val) {
+  arr[off] = (val >>> 24) & 0xff;
+  arr[off+1] = (val >>> 16) & 0xff;
+  arr[off+2] = (val >>> 8) & 0xff;
+  arr[off+3] = val & 0xff;
+}
+
+function makeChunk(type, data) {
+  const len = data.length;
+  const out = new Uint8Array(12 + len);
+  writeUint32(out, 0, len);
+  for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+  out.set(data, 8);
+  // CRC32 over type + data
+  const crcBuf = new Uint8Array(4 + len);
+  for (let i = 0; i < 4; i++) crcBuf[i] = type.charCodeAt(i);
+  crcBuf.set(data, 4);
+  writeUint32(out, 8 + len, crc32(crcBuf));
+  return out;
+}
+
+// CRC32 table
+const crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+async function compressDeflate(data) {
+  // Use CompressionStream with 'deflate' (zlib format, which PNG requires)
+  const stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate'));
+  const ab = await new Response(stream).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+function erodeBinary(src, W, H, r) {
+  if (r <= 0) return new Uint8Array(src);
+  const horiz = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let blackCount = 0;
+    for (let x = 0; x < W; x++) {
+      if (x === 0) {
+        for (let dx = 0; dx <= r && dx < W; dx++) if (!src[y*W + dx]) blackCount++;
+      } else {
+        const addX = x + r, remX = x - r - 1;
+        if (addX < W && !src[y*W + addX]) blackCount++;
+        if (remX >= 0 && !src[y*W + remX]) blackCount--;
+      }
+      horiz[y*W + x] = (blackCount === 0) ? 1 : 0;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let blackCount = 0;
+    for (let y = 0; y < H; y++) {
+      if (y === 0) {
+        for (let dy = 0; dy <= r && dy < H; dy++) if (!horiz[dy*W + x]) blackCount++;
+      } else {
+        const addY = y + r, remY = y - r - 1;
+        if (addY < H && !horiz[addY*W + x]) blackCount++;
+        if (remY >= 0 && !horiz[remY*W + x]) blackCount--;
+      }
+      out[y*W + x] = (blackCount === 0) ? 1 : 0;
+    }
+  }
+  return out;
+}
+
+function dilateBinary(src, W, H, r) {
+  if (r <= 0) return new Uint8Array(src);
+  const horiz = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let onCount = 0;
+    for (let x = 0; x < W; x++) {
+      if (x === 0) {
+        for (let dx = 0; dx <= r && dx < W; dx++) if (src[y*W + dx]) onCount++;
+      } else {
+        const addX = x + r, remX = x - r - 1;
+        if (addX < W && src[y*W + addX]) onCount++;
+        if (remX >= 0 && src[y*W + remX]) onCount--;
+      }
+      horiz[y*W + x] = (onCount > 0) ? 1 : 0;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let onCount = 0;
+    for (let y = 0; y < H; y++) {
+      if (y === 0) {
+        for (let dy = 0; dy <= r && dy < H; dy++) if (horiz[dy*W + x]) onCount++;
+      } else {
+        const addY = y + r, remY = y - r - 1;
+        if (addY < H && horiz[addY*W + x]) onCount++;
+        if (remY >= 0 && horiz[remY*W + x]) onCount--;
+      }
+      out[y*W + x] = (onCount > 0) ? 1 : 0;
+    }
+  }
+  return out;
+}
+</script>
+
+</body>
+</html>
