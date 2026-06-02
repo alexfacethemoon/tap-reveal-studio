@@ -6,6 +6,10 @@ Everything runs **locally in your browser**. No uploads, no servers, no tracking
 
 This is the same export engine as the original *image-reveal-studio*, rebuilt with a warmer, more refined UI and **real selection tools** (magic wand, quick select, object lasso) with add/subtract support.
 
+## Live app
+
+👉 **https://alexfacethemoon.github.io/tap-reveal-studio/**
+
 ## What it does
 
 1. Drop in a colored image (a PNG with the background already removed works best).
