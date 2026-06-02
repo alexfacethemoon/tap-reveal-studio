@@ -172,6 +172,8 @@ const scrollIcon = `<svg width="13" height="19" viewBox="0 0 24 36" fill="none" 
 if (kbZoom) kbZoom.innerHTML = (IS_MAC ? '<kbd>⌘</kbd> + ' : '<kbd>Ctrl</kbd> + ') + scrollIcon + ' Scroll';
 els.undo.onclick = () => { commitFloating(); if (undoStack.length) { mctx.putImageData(undoStack.pop(), 0, 0); } };
 document.addEventListener('keydown', e => {
+  if (e.repeat) return;  // ignore OS key auto-repeat: one physical press = one action.
+                         // Without this, holding Ctrl+Z fires a burst of undos and wipes the whole drawing.
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); els.undo.onclick(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (srcImage) saveProject(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); els.tspFile.click(); }

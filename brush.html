@@ -895,6 +895,14 @@ els.undo.addEventListener('click', () => {
     els.maskCanvas.getContext('2d').putImageData(last, 0, 0);
   }
 });
+// Ctrl/Cmd+Z = undo. Guard against OS key auto-repeat (e.repeat) so holding the
+// keys fires exactly one undo per physical press instead of wiping the whole drawing.
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.repeat) {
+    e.preventDefault();
+    els.undo.click();
+  }
+});
 els.clearAll.addEventListener('click', () => {
   saveUndo();
   els.maskCanvas.getContext('2d').clearRect(0, 0, els.maskCanvas.width, els.maskCanvas.height);
