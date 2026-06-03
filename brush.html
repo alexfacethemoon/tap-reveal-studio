@@ -903,6 +903,18 @@ document.addEventListener('keydown', e => {
     els.undo.click();
   }
 });
+
+// Desktop app (pywebview): <a download> blob links don't save, so route the PNG
+// download through the native Save dialog. In a browser this no-ops and the link works.
+els.download.addEventListener('click', async (e) => {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.save_file_dialog)) return;
+  if (!window.__tapLastPng) return;
+  e.preventDefault();
+  const bytes = new Uint8Array(await window.__tapLastPng.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  await window.pywebview.api.save_file_dialog((srcName || 'tapme') + '.png', btoa(binary));
+});
 els.clearAll.addEventListener('click', () => {
   saveUndo();
   els.maskCanvas.getContext('2d').clearRect(0, 0, els.maskCanvas.width, els.maskCanvas.height);
@@ -1031,6 +1043,7 @@ els.generate.addEventListener('click', async () => {
   // workaround: encode the pixel data manually as an indexed PNG.
   const indexedBlob = await encodeIndexedPNG(finalCanvas);
   const url = URL.createObjectURL(indexedBlob);
+  window.__tapLastPng = indexedBlob;   // keep the blob so the desktop app can save it natively
   els.previewFull.src = url;
   els.download.href = url;
   els.download.download = srcName + '.png';

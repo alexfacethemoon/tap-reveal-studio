@@ -761,11 +761,25 @@ els.generate.addEventListener('click', async () => {
     if (blob.size / 1024 <= TARGET_KB) break;
   }
   const url = URL.createObjectURL(blob);
+  window.__tapLastPng = blob;   // keep the blob so the desktop app can save it natively
   els.previewFull.src = url; els.download.href = url; els.download.download = srcName + '.png';
   els.resultMeta.textContent = '[ ' + info.tw + '×' + info.th + ' · ' + info.kb + ' KB ]';
   els.result.classList.remove('hidden');
   els.generate.disabled = false; els.generate.textContent = '▸ Generate PNG';
   els.result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+// In the desktop app (pywebview), an <a download> blob link doesn't trigger a save,
+// so route the PNG download through the native Save dialog (same bridge as project save).
+// In a normal browser window.pywebview is undefined, so the <a download> works as before.
+els.download.addEventListener('click', async (e) => {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.save_file_dialog)) return;
+  if (!window.__tapLastPng) return;
+  e.preventDefault();
+  const bytes = new Uint8Array(await window.__tapLastPng.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  await window.pywebview.api.save_file_dialog((srcName || 'tap_studio') + '.png', btoa(binary));
 });
 
 async function encodeIndexedPNG(rgba, W, H, quantStep) {

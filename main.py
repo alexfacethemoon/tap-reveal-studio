@@ -20,11 +20,18 @@ class Api:
         self._window = window
 
     def save_file_dialog(self, default_name, base64_data):
-        """Open a native 'Save As' dialog and write the .tsp file."""
+        """Open a native 'Save As' dialog and write the file (PNG export or .tsp project)."""
+        ext = os.path.splitext(default_name)[1].lower()
+        if ext == '.png':
+            file_types = ('PNG Image (*.png)', 'All files (*.*)')
+        elif ext == '.tsp':
+            file_types = ('TapStudio Project (*.tsp)', 'All files (*.*)')
+        else:
+            file_types = ('All files (*.*)',)
         result = self._window.create_file_dialog(
             webview.SAVE_DIALOG,
             save_filename=default_name,
-            file_types=('TapStudio Project (*.tsp)',)
+            file_types=file_types
         )
         if result:
             path = result if isinstance(result, str) else result[0]
