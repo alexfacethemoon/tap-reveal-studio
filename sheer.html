@@ -49,6 +49,12 @@
     .tint { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--line-2); cursor: pointer; padding: 0; }
     .tint.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,179,71,.25); }
     input[type=color] { width: 34px; height: 30px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); cursor: pointer; padding: 2px; }
+    .shapes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .shape-btn { background: var(--panel-2); border: 1.5px solid var(--line-2); border-radius: 9px; padding: 8px 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .shape-btn:hover { border-color: var(--accent); }
+    .shape-btn.active { border-color: var(--accent); background: rgba(255,179,71,.16); }
+    .shape-btn svg { width: 16px; height: 16px; color: var(--ink); display: block; }
+    .shape-btn.active svg { color: var(--accent); }
     .btn { width: 100%; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: 600 13px var(--sans); cursor: pointer; transition: all .15s; }
     .btn:hover { border-color: var(--accent); }
     .btn.toggle.active { background: rgba(255,179,71,.16); border-color: var(--accent); color: var(--accent); }
@@ -86,6 +92,14 @@
             <input type="range" id="size" min="6" max="300" value="60">
             <div class="row"><label>Softness</label><span class="v"><span id="featherV">60</span>%</span></div>
             <input type="range" id="feather" min="0" max="100" value="60">
+            <div class="row" style="margin-top:2px"><label>Shape</label></div>
+            <div class="shapes" id="shapes">
+              <button class="shape-btn active" data-shape="round" title="Round"><svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="7"/></svg></button>
+              <button class="shape-btn" data-shape="square" title="Square"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="3" y="3" width="14" height="14"/></svg></button>
+              <button class="shape-btn" data-shape="triangle" title="Triangle"><svg viewBox="0 0 20 20" fill="currentColor"><polygon points="10,2 18,17 2,17"/></svg></button>
+              <button class="shape-btn" data-shape="hline" title="Horizontal"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="8" width="16" height="4" rx="1"/></svg></button>
+              <button class="shape-btn" data-shape="vline" title="Vertical"><svg viewBox="0 0 20 20" fill="currentColor"><rect x="8" y="2" width="4" height="16" rx="1"/></svg></button>
+            </div>
           </div>
 
           <div class="sec">
@@ -147,7 +161,7 @@ let srcImage = null;
 let srcCanvas, maskCanvas, shadeCanvas, sheenCanvas; // offscreen
 let vctx;
 let tint = '#1b1b20';
-let erase = false, painting = false, last = null;
+let erase = false, painting = false, last = null, brushShape = 'round';
 let undoStack = []; const MAX_UNDO = 16;
 
 /* ── loading ── */
@@ -189,28 +203,38 @@ function toPx(e) {
 }
 
 /* ── painting onto the mask (soft round brush) ── */
+function traceShape(ctx, x, y, r, shape) {
+  ctx.beginPath();
+  if (shape === 'square') ctx.rect(x - r, y - r, r * 2, r * 2);
+  else if (shape === 'triangle') { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r); ctx.lineTo(x - r, y + r); ctx.closePath(); }
+  else if (shape === 'hline') { const t = Math.max(2, r / 2.5); ctx.rect(x - r, y - t / 2, r * 2, t); }
+  else if (shape === 'vline') { const t = Math.max(2, r / 2.5); ctx.rect(x - t / 2, y - r, t, r * 2); }
+  else ctx.arc(x, y, r, 0, Math.PI * 2);
+}
+
 function stamp(x, y) {
   const mctx = maskCanvas.getContext('2d');
   const radius = parseInt(els.size.value);
   const soft = parseInt(els.feather.value) / 100;
+  const a = erase ? 1 : 0.5;            // erase clears fully; paint builds up coverage
+  const col = erase ? '0,0,0' : '255,255,255';
   mctx.save();
-  if (erase) {
-    mctx.globalCompositeOperation = 'destination-out';
+  mctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
+  if (brushShape === 'round') {
+    // soft radial falloff controlled by Softness
     const g = mctx.createRadialGradient(x, y, 0, x, y, radius);
-    g.addColorStop(0, 'rgba(0,0,0,1)');
-    g.addColorStop(Math.max(0.001, 1 - soft), 'rgba(0,0,0,1)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
+    g.addColorStop(0, `rgba(${col},${a})`);
+    g.addColorStop(Math.max(0.001, 1 - soft), `rgba(${col},${a})`);
+    g.addColorStop(1, `rgba(${col},0)`);
     mctx.fillStyle = g;
+    mctx.beginPath(); mctx.arc(x, y, radius, 0, Math.PI * 2); mctx.fill();
   } else {
-    mctx.globalCompositeOperation = 'source-over';
-    const g = mctx.createRadialGradient(x, y, 0, x, y, radius);
-    // build up coverage; soft edge controlled by feather
-    g.addColorStop(0, 'rgba(255,255,255,0.5)');
-    g.addColorStop(Math.max(0.001, 1 - soft), 'rgba(255,255,255,0.5)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    mctx.fillStyle = g;
+    // square / triangle / lines — feather the edges with a blur sized by Softness
+    mctx.fillStyle = `rgba(${col},${a})`;
+    if (soft > 0) { mctx.shadowColor = `rgba(${col},${a})`; mctx.shadowBlur = radius * soft * 0.9; }
+    traceShape(mctx, x, y, radius, brushShape);
+    mctx.fill();
   }
-  mctx.beginPath(); mctx.arc(x, y, radius, 0, Math.PI * 2); mctx.fill();
   mctx.restore();
 }
 
@@ -291,6 +315,10 @@ els.tints.querySelectorAll('.tint').forEach(b => b.addEventListener('click', () 
 els.tintCustom.addEventListener('input', () => {
   tint = els.tintCustom.value; els.tints.querySelectorAll('.tint').forEach(x => x.classList.remove('active')); render();
 });
+document.querySelectorAll('#shapes .shape-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#shapes .shape-btn').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); brushShape = b.dataset.shape;
+}));
 els.eraseBtn.addEventListener('click', () => { els.eraseBtn.classList.toggle('active'); erase = els.eraseBtn.classList.contains('active'); });
 els.undo.addEventListener('click', () => { if (undoStack.length) { maskCanvas.getContext('2d').putImageData(undoStack.pop(), 0, 0); render(); } });
 els.clear.addEventListener('click', () => { saveUndo(); maskCanvas.getContext('2d').clearRect(0, 0, W, H); render(); });
