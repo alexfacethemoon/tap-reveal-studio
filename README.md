@@ -10,12 +10,13 @@ This is the same export engine as the original *image-reveal-studio*, rebuilt wi
 
 👉 **https://alexfacethemoon.github.io/tap-reveal-studio/**
 
-## Two tools, one studio
+## Three tools, one studio
 
 The opening screen (`index.html`) lets you choose a tool:
 
 - **Color Studio** (`studio.html`) — keeps the original colors; hidden areas become sparse interlaced pixels. This is the full painting tool described below.
 - **Brush Dither** (`brush.html`) — black-and-white output using the exact 4×4 dither tile from real tap-me uploads; best for line art, sketches, and drawings. Adds a **Shadow** paint mode and a darkness threshold.
+- **Sheer Shade** (`sheer.html`) — a photo retoucher: brush a see-through dark layer over skin so it reads like sheer tights/stockings (a *multiply* tint that keeps the skin's shape). Adjustable strength, tint, softness and sheen; exports a PNG.
 
 ## What it does (Color Studio)
 
@@ -73,6 +74,7 @@ Plain HTML/CSS/JS with **zero dependencies**. Either:
 | `index.html` | the tool picker / landing screen |
 | `studio.html` | Color Studio markup / layout (uses `style.css` + `app.js`) |
 | `brush.html` | Brush Dither tool — self-contained (own styles + logic) |
+| `sheer.html` | Sheer Shade retoucher — self-contained (own styles + logic) |
 | `style.css`  | the warm dark theme (Color Studio) |
 | `app.js`     | Color Studio logic — painting, bucket fill, selection tools, PNG-8 encoder |
 

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Sheer Shade — faux tights / skin shading</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>%E2%9C%A6</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0d11; --panel: #14161d; --panel-2: #1b1e28; --panel-3: #23262f;
+      --line: #2a2e3a; --line-2: #363b49; --ink: #e9ecf2; --muted: #8b91a3; --faint: #5b6172;
+      --accent: #ffb347; --accent-2: #4fd1c5;
+      --sans: "Sora", system-ui, -apple-system, sans-serif;
+      --display: "Space Grotesk", "Sora", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--ink); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    .back { position: fixed; top: 16px; right: 18px; z-index: 300; font: 600 12px/1 var(--sans); color: var(--muted); text-decoration: none; background: var(--panel); border: 1px solid var(--line); padding: 9px 13px; border-radius: 999px; }
+    .back:hover { color: var(--accent); border-color: var(--accent); }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 30px 22px 22px; }
+    h1 { font-family: var(--display); font-weight: 600; font-size: 34px; letter-spacing: -.02em; margin: 0 0 6px; }
+    h1 em { font-style: normal; color: var(--accent); }
+    .tagline { color: var(--muted); margin: 0 0 22px; font-size: 15px; line-height: 1.5; max-width: 720px; }
+
+    .drop { border: 1.5px dashed var(--line); border-radius: 18px; padding: 54px 24px; text-align: center; cursor: pointer; transition: all .18s; background: var(--panel); }
+    .drop:hover, .drop.over { border-color: var(--accent); background: var(--panel-2); }
+    .drop .big { font-family: var(--display); font-size: 19px; font-weight: 600; margin: 4px 0; }
+    .drop .small { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+    input[type=file] { display: none; }
+
+    .grid { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-top: 18px; align-items: start; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .sidebar { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .sec { display: flex; flex-direction: column; gap: 9px; }
+    .sec-label { font-family: var(--display); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--ink); }
+    .row .v { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .tints { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .tint { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--line-2); cursor: pointer; padding: 0; }
+    .tint.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,179,71,.25); }
+    input[type=color] { width: 34px; height: 30px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); cursor: pointer; padding: 2px; }
+    .btn { width: 100%; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: 600 13px var(--sans); cursor: pointer; transition: all .15s; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.toggle.active { background: rgba(255,179,71,.16); border-color: var(--accent); color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #0b0c10; border-color: var(--accent); }
+    .btn.primary:hover { filter: brightness(1.06); }
+    .btnrow { display: flex; gap: 8px; }
+    .btnrow .btn { width: auto; flex: 1; }
+
+    .stage { background: #0a0b0e; border: 1px solid var(--line); border-radius: 16px; padding: 14px; min-height: 360px; display: flex; align-items: center; justify-content: center; overflow: auto; position: relative; }
+    #view { max-width: 100%; max-height: 74vh; display: block; touch-action: none; cursor: crosshair; border-radius: 6px; }
+    .hint { font-size: 11.5px; color: var(--faint); margin-top: 10px; line-height: 1.5; }
+    .hidden { display: none; }
+    .compare-note { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+
+<body>
+  <a class="back" href="index.html" title="Back to tool picker">← Tools</a>
+  <div class="wrap">
+    <h1>Sheer <em>Shade</em></h1>
+    <p class="tagline">Paint over skin to lay down a see‑through dark layer — it darkens like sheer tights/stockings while the skin's shape still shows through. Adjust strength, tint and sheen, then export.</p>
+
+    <label class="drop" id="drop">
+      <p class="big">Click or drop a photo here</p>
+      <p class="small">Runs entirely in your browser — nothing is uploaded</p>
+      <input type="file" id="file" accept="image/*">
+    </label>
+
+    <div id="ws" class="hidden">
+      <div class="grid">
+        <aside class="sidebar">
+          <div class="sec">
+            <span class="sec-label">Brush</span>
+            <div class="row"><label>Size</label><span class="v"><span id="sizeV">60</span>px</span></div>
+            <input type="range" id="size" min="6" max="300" value="60">
+            <div class="row"><label>Softness</label><span class="v"><span id="featherV">60</span>%</span></div>
+            <input type="range" id="feather" min="0" max="100" value="60">
+          </div>
+
+          <div class="sec">
+            <span class="sec-label">Shade</span>
+            <div class="row"><label>Strength</label><span class="v"><span id="strV">55</span>%</span></div>
+            <input type="range" id="str" min="0" max="100" value="55">
+            <div class="row"><label>Sheen</label><span class="v"><span id="sheenV">25</span>%</span></div>
+            <input type="range" id="sheen" min="0" max="100" value="25">
+            <span class="sec-label" style="margin-top:4px">Tint</span>
+            <div class="tints" id="tints">
+              <button class="tint active" data-tint="#1b1b20" style="background:#1b1b20" title="Sheer black"></button>
+              <button class="tint" data-tint="#3a3a42" style="background:#3a3a42" title="Charcoal"></button>
+              <button class="tint" data-tint="#5a4636" style="background:#5a4636" title="Cocoa / tan"></button>
+              <button class="tint" data-tint="#241c2e" style="background:#241c2e" title="Plum"></button>
+              <input type="color" id="tintCustom" value="#1b1b20" title="Custom tint">
+            </div>
+          </div>
+
+          <div class="sec">
+            <span class="sec-label">Tools</span>
+            <button class="btn toggle" id="eraseBtn">Erase (or right‑click)</button>
+            <div class="btnrow">
+              <button class="btn" id="undo">↩ Undo</button>
+              <button class="btn" id="clear">Clear</button>
+            </div>
+            <label class="compare-note"><input type="checkbox" id="cmp"> Hold to compare (show original)</label>
+          </div>
+
+          <div class="sec">
+            <span class="sec-label">Export</span>
+            <button class="btn primary" id="export">⬇ Download PNG</button>
+            <a id="dl" class="hidden" download="sheer.png"></a>
+          </div>
+        </aside>
+
+        <div>
+          <div class="stage">
+            <canvas id="view"></canvas>
+          </div>
+          <p class="hint">Brush over the thigh / skin you want to look stockinged. Build it up with repeated strokes; right‑click (or the Erase button) to remove. Lower <b>Strength</b> = sheerer, higher = more opaque. <b>Sheen</b> adds a soft gloss.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const els = {
+  drop: $('drop'), file: $('file'), ws: $('ws'), view: $('view'),
+  size: $('size'), feather: $('feather'), str: $('str'), sheen: $('sheen'),
+  tints: $('tints'), tintCustom: $('tintCustom'),
+  eraseBtn: $('eraseBtn'), undo: $('undo'), clear: $('clear'), cmp: $('cmp'),
+  export: $('export'), dl: $('dl'),
+};
+
+const MAX_DIM = 2000;
+let W = 0, H = 0, srcName = 'sheer';
+let srcImage = null;
+let srcCanvas, maskCanvas, shadeCanvas, sheenCanvas; // offscreen
+let vctx;
+let tint = '#1b1b20';
+let erase = false, painting = false, last = null;
+let undoStack = []; const MAX_UNDO = 16;
+
+/* ── loading ── */
+els.drop.addEventListener('dragover', e => { e.preventDefault(); els.drop.classList.add('over'); });
+els.drop.addEventListener('dragleave', () => els.drop.classList.remove('over'));
+els.drop.addEventListener('drop', e => { e.preventDefault(); els.drop.classList.remove('over'); if (e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+els.file.addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
+
+function load(file) {
+  srcName = file.name.replace(/\.[^.]+$/, '') + '_sheer';
+  const rd = new FileReader();
+  rd.onload = ev => { const img = new Image(); img.onload = () => { srcImage = img; setup(); }; img.src = ev.target.result; };
+  rd.readAsDataURL(file);
+}
+
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+function setup() {
+  let w = srcImage.naturalWidth, h = srcImage.naturalHeight;
+  const s = Math.min(1, MAX_DIM / Math.max(w, h));
+  W = Math.max(1, Math.round(w * s)); H = Math.max(1, Math.round(h * s));
+  els.view.width = W; els.view.height = H;
+  vctx = els.view.getContext('2d');
+  srcCanvas = mkCanvas(W, H);
+  srcCanvas.getContext('2d').drawImage(srcImage, 0, 0, W, H);
+  maskCanvas = mkCanvas(W, H);     // alpha = shade coverage
+  shadeCanvas = mkCanvas(W, H);
+  sheenCanvas = mkCanvas(W, H);
+  undoStack = [];
+  els.drop.style.display = 'none';
+  els.ws.classList.remove('hidden');
+  render();
+}
+
+/* ── coords ── */
+function toPx(e) {
+  const r = els.view.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+}
+
+/* ── painting onto the mask (soft round brush) ── */
+function stamp(x, y) {
+  const mctx = maskCanvas.getContext('2d');
+  const radius = parseInt(els.size.value);
+  const soft = parseInt(els.feather.value) / 100;
+  mctx.save();
+  if (erase) {
+    mctx.globalCompositeOperation = 'destination-out';
+    const g = mctx.createRadialGradient(x, y, 0, x, y, radius);
+    g.addColorStop(0, 'rgba(0,0,0,1)');
+    g.addColorStop(Math.max(0.001, 1 - soft), 'rgba(0,0,0,1)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    mctx.fillStyle = g;
+  } else {
+    mctx.globalCompositeOperation = 'source-over';
+    const g = mctx.createRadialGradient(x, y, 0, x, y, radius);
+    // build up coverage; soft edge controlled by feather
+    g.addColorStop(0, 'rgba(255,255,255,0.5)');
+    g.addColorStop(Math.max(0.001, 1 - soft), 'rgba(255,255,255,0.5)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    mctx.fillStyle = g;
+  }
+  mctx.beginPath(); mctx.arc(x, y, radius, 0, Math.PI * 2); mctx.fill();
+  mctx.restore();
+}
+
+function strokeTo(x, y) {
+  if (last) {
+    const dx = x - last.x, dy = y - last.y, dist = Math.hypot(dx, dy);
+    const step = Math.max(2, parseInt(els.size.value) / 6);
+    const n = Math.max(1, Math.ceil(dist / step));
+    for (let i = 1; i <= n; i++) stamp(last.x + dx * i / n, last.y + dy * i / n);
+  } else stamp(x, y);
+  last = { x, y };
+  render();
+}
+
+function saveUndo() { undoStack.push(maskCanvas.getContext('2d').getImageData(0, 0, W, H)); if (undoStack.length > MAX_UNDO) undoStack.shift(); }
+
+els.view.addEventListener('pointerdown', e => {
+  e.preventDefault(); els.view.setPointerCapture(e.pointerId);
+  saveUndo();
+  erase = els.eraseBtn.classList.contains('active') || e.button === 2;
+  painting = true; last = null;
+  const p = toPx(e); strokeTo(p.x, p.y);
+});
+els.view.addEventListener('pointermove', e => { if (!painting) return; const p = toPx(e); strokeTo(p.x, p.y); });
+els.view.addEventListener('pointerup', () => { painting = false; last = null; erase = els.eraseBtn.classList.contains('active'); });
+els.view.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ── composite the shaded result ── */
+function render() {
+  if (!vctx) return;
+  vctx.globalCompositeOperation = 'source-over'; vctx.globalAlpha = 1;
+  vctx.clearRect(0, 0, W, H);
+  vctx.drawImage(srcCanvas, 0, 0);
+  if (els.cmp.checked) return; // show original while comparing
+
+  const strength = parseInt(els.str.value) / 100;
+  const sheen = parseInt(els.sheen.value) / 100;
+
+  if (strength > 0) {
+    // shade = tint colour clipped to the painted mask
+    const sc = shadeCanvas.getContext('2d');
+    sc.globalCompositeOperation = 'source-over'; sc.globalAlpha = 1;
+    sc.clearRect(0, 0, W, H);
+    sc.fillStyle = tint; sc.fillRect(0, 0, W, H);
+    sc.globalCompositeOperation = 'destination-in';
+    sc.drawImage(maskCanvas, 0, 0);
+    sc.globalCompositeOperation = 'source-over';
+    // multiply onto the skin → darkens but keeps the underlying shading
+    vctx.globalCompositeOperation = 'multiply';
+    vctx.globalAlpha = strength;
+    vctx.drawImage(shadeCanvas, 0, 0);
+  }
+
+  if (sheen > 0) {
+    // soft gloss: faint white clipped to mask, screened on top
+    const hc = sheenCanvas.getContext('2d');
+    hc.globalCompositeOperation = 'source-over'; hc.globalAlpha = 1;
+    hc.clearRect(0, 0, W, H);
+    hc.fillStyle = '#ffffff'; hc.fillRect(0, 0, W, H);
+    hc.globalCompositeOperation = 'destination-in';
+    hc.drawImage(maskCanvas, 0, 0);
+    hc.globalCompositeOperation = 'source-over';
+    vctx.globalCompositeOperation = 'screen';
+    vctx.globalAlpha = sheen * 0.28;
+    vctx.drawImage(sheenCanvas, 0, 0);
+  }
+  vctx.globalCompositeOperation = 'source-over'; vctx.globalAlpha = 1;
+}
+
+/* ── controls ── */
+[['size','sizeV'],['feather','featherV'],['str','strV'],['sheen','sheenV']].forEach(([id, vid]) => {
+  els[id].addEventListener('input', () => { $(vid).textContent = els[id].value; render(); });
+});
+els.tints.querySelectorAll('.tint').forEach(b => b.addEventListener('click', () => {
+  els.tints.querySelectorAll('.tint').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); tint = b.dataset.tint; els.tintCustom.value = tint; render();
+}));
+els.tintCustom.addEventListener('input', () => {
+  tint = els.tintCustom.value; els.tints.querySelectorAll('.tint').forEach(x => x.classList.remove('active')); render();
+});
+els.eraseBtn.addEventListener('click', () => { els.eraseBtn.classList.toggle('active'); erase = els.eraseBtn.classList.contains('active'); });
+els.undo.addEventListener('click', () => { if (undoStack.length) { maskCanvas.getContext('2d').putImageData(undoStack.pop(), 0, 0); render(); } });
+els.clear.addEventListener('click', () => { saveUndo(); maskCanvas.getContext('2d').clearRect(0, 0, W, H); render(); });
+els.cmp.addEventListener('change', render);
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.repeat) { e.preventDefault(); els.undo.click(); }
+});
+
+/* ── export (native save in the desktop app, blob download in a browser) ── */
+els.export.addEventListener('click', async () => {
+  const wasCmp = els.cmp.checked; els.cmp.checked = false; render();
+  const blob = await new Promise(r => els.view.toBlob(r, 'image/png'));
+  els.cmp.checked = wasCmp; render();
+  const name = (srcName || 'sheer') + '.png';
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file_dialog) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    await window.pywebview.api.save_file_dialog(name, btoa(bin));
+  } else {
+    const url = URL.createObjectURL(blob);
+    els.dl.href = url; els.dl.download = name; els.dl.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+});
+</script>
+</body>
+
+</html>

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TapStudio Pro — choose a tool</title>
   <meta name="description"
-    content="Make tap-to-reveal images for X/Twitter. Two tools: full-color studio and black-and-white brush dither. Runs entirely in your browser — nothing is uploaded.">
+    content="Image tools for X/Twitter creators: full-color tap-to-reveal studio, black-and-white brush dither, and a sheer/skin-shade retoucher. Runs entirely in your browser — nothing is uploaded.">
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>%E2%9C%A6</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,10 +88,10 @@
       margin: 0 auto;
       padding: 36px 28px 28px;
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
     }
-    @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
 
     .card {
       display: flex;
@@ -190,7 +190,7 @@
 
 <body>
   <header>
-    <div class="eyebrow">Two tools · one studio</div>
+    <div class="eyebrow">Three tools · one studio</div>
     <h1>Tap_<span>STUDIO</span></h1>
     <p class="lede">Make images that hide in the X/Twitter feed and reveal themselves on tap. Pick the technique that
       fits your image — everything runs locally, nothing is uploaded.</p>
@@ -218,6 +218,17 @@
         <span class="tag">black &amp; white</span>
         <span class="tag">4×4 dither</span>
         <span class="tag">line art</span>
+      </div>
+    </a>
+
+    <a class="card" href="sheer.html">
+      <span class="swatch" style="background:linear-gradient(135deg,#e7b58f,#b98c6e 40%,#3a2f3a 72%,#16161b)"></span>
+      <h2>Sheer <em>Shade</em></h2>
+      <p>Brush a see-through dark layer over skin so it reads like sheer tights or stockings — the skin's shape still shows through. Adjustable strength, tint and sheen.</p>
+      <div class="tags">
+        <span class="tag">photo retouch</span>
+        <span class="tag">faux tights</span>
+        <span class="tag">export PNG</span>
       </div>
     </a>
   </main>
